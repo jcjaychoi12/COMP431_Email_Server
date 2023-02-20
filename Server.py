@@ -210,7 +210,7 @@ def main():
                     if quit_message != "QUIT":
                         print("QUIT Error")
                     else:
-                        connection.send(("220 " + socket.gethostname().remove('\n') + " closing connection").encode())
+                        connection.send(("221 " + socket.gethostname().remove('\n') + " closing connection").encode())
                     break
             except (EOFError, IndexError):
                 if data_fail:

@@ -120,7 +120,7 @@ def main():
 
     # QUIT Recieve
     quit_answer: str = connection.recv(1024).decode()
-    if quit_answer != ("220 " + server_name + " closing connection"):
+    if quit_answer != ("221 " + server_name + " closing connection"):
         print("QUIT Error")
     return
 
