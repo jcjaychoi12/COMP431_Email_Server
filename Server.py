@@ -66,7 +66,7 @@ def main():
                 print("220 Send Error")
                 connection.close()
 
-        while send_220_success:
+        if send_220_success:
             # Recieve HELO message from client and respond with 250
             hello_from_client: str = connection.recv(1024).decode()
             client_name: str = ''
@@ -75,9 +75,9 @@ def main():
                 connection.close()
                 break
             else:
-                client_name = hello_from_client[4:].replace(' ', '')
-                HELO250: str = "250 Hello " + client_name + " pleased to meet you"
-                connection.send(HELO250.encode())
+                client_name = hello_from_client[4:].replace(' ', '').replace('\n', '')
+                Helo_250: str = "250 Hello " + client_name + " pleased to meet you"
+                connection.send(Helo_250.encode())
 
         # SMTP Message Loop
         smtp_cont: bool = True
@@ -204,7 +204,14 @@ def main():
                         connection.close()
                         smtp_cont = False
                         break
-
+                    
+                    # QUIT Recieve/Answer
+                    quit_message: str = connection.recv(1024).decode()
+                    if quit_message != "QUIT":
+                        print("QUIT Error")
+                    else:
+                        connection.send(("220 " + socket.gethostname().remove('\n') + " closing connection").encode())
+                    break
             except (EOFError, IndexError):
                 if data_fail:
                     connection.send(ERROR501.encode())
