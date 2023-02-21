@@ -40,7 +40,7 @@ def main():
         # Create socket from argv
         port_num = sys.argv[1]
         server = socket.socket(AF_INET, SOCK_STREAM)
-        server.setsockopt(socket.SO_REUSEADDR)
+        server.setsockopt(SOL_SOCKET,SO_REUSEADDR, 1)
         server.bind(('', int(port_num)))
         server.listen(1)
     except socket.error:
@@ -48,162 +48,162 @@ def main():
         return
 
     while True:
-        # Accept connection from client
-        success_connect: bool = False
         try:
-            connection, address = server.accept()
-            success_connect = True
-        except socket.error:
-            print("Connection Error")
-
-        send_220_success: bool = False
-        if success_connect:
-            # Send 220 message
-            message_220: str = "220 " + socket.gethostname()
+            # Accept connection from client
+            success_connect: bool = False
             try:
-                connection.send(message_220.encode())
-                send_220_success = True
+                connection, address = server.accept()
+                success_connect = True
             except socket.error:
-                print("220 Send Error")
-                connection.close()
+                print("Connection Error")
 
-        hello_success: bool = False
-        if send_220_success:
-            # Recieve HELO message from client and respond with 250
-            hello_from_client: str = connection.recv(1024).decode()
-            client_name: str = ''
-            if not check_hello_from_client(hello_from_client):
-                connection.send(error.encode())
-                connection.close()
-            else:
-                client_name = hello_from_client[4:].replace(' ', '').replace('\n', '')
-                Helo_250: str = "250 Hello " + client_name + " pleased to meet you"
-                connection.send(Helo_250.encode())
-                hello_success = True
+            send_220_success: bool = False
+            if success_connect:
+                # Send 220 message
+                message_220: str = "220 " + socket.gethostname()
+                try:
+                    connection.send(message_220.encode())
+                    send_220_success = True
+                except socket.error:
+                    print("220 Send Error")
+                    if connection:
+                        connection.close()
 
-        # SMTP Message Loop
-        while hello_success:
-            data_fail: bool = False
-            try:
-                while True:
-                    error = ''
-                    index = 0
-                    string = connection.recv(1024).decode()
-                    value = string[index]
+            hello_success: bool = False
+            if send_220_success:
+                # Recieve HELO message from client and respond with 250
+                hello_from_client: str = connection.recv(2048).decode()
+                client_name: str = ''
+                if not check_hello_from_client(hello_from_client):
+                    connection.send(error.encode())
+                    if connection:
+                        connection.close()
+                else:
+                    client_name = hello_from_client[4:].replace(' ', '').replace('\n', '')
+                    Helo_250: str = "250 Hello " + client_name + " pleased to meet you"
+                    connection.send(Helo_250.encode())
+                    hello_success = True
 
-                    data_fail = False
+            # SMTP Message Loop
+            if hello_success:
+                data_fail: bool = False
+                error = ''
+                index = 0
+                string = connection.recv(2048).decode()
+                value = string[index]
 
-                    reverse = ''
-                    forward.clear()
-                    data.clear()
+                data_fail = False
 
-                    if mail_from_cmd():
-                        connection.send(OK250.encode())
+                reverse = ''
+                forward.clear()
+                data.clear()
 
-                        at_least_one: bool = False
-                        while True:
+                if mail_from_cmd():
+                    connection.send(OK250.encode())
+
+                    at_least_one: bool = False
+                    while True:
+                        index = 0
+                        string = connection.recv(2048).decode()
+                        value = string[index]
+
+                        if rcpt_to_cmd():
+                            at_least_one = True
+                            connection.send(OK250.encode())
+                        else:
                             index = 0
-                            string = connection.recv(1024).decode()
                             value = string[index]
-
-                            if rcpt_to_cmd():
-                                at_least_one = True
-                                connection.send(OK250.encode())
+                            error = ''
+                            if mail_from_cmd() or error == ERROR501:
+                                error = ERROR503
+                                break
                             else:
                                 index = 0
                                 value = string[index]
                                 error = ''
-                                if mail_from_cmd() or error == ERROR501:
-                                    error = ERROR503
+
+                                if at_least_one and data_cmd():
+                                    connection.send(DATA354.encode())
+
+                                    data_message: str = connection.recv(2048).decode()
+                                        
+                                    forward_domain: str = []
+                                    for f_path in forward:
+                                        at_index: int = 0
+                                        char_index: int = 0
+                                        for char in f_path:
+                                            if char == '@':
+                                                at_index = char_index
+                                            char_index += 1
+                                        if f_path[(at_index + 1):] not in forward_domain:
+                                            forward_domain.append(f_path[(at_index + 1):])
+
+                                    for path in forward_domain:
+                                        full_path: str = "./forward/" + path
+                                        if os.path.exists(full_path):
+                                            with open(full_path, 'at') as message:
+                                                message.write(data_message)
+                                        else:
+                                            with open(full_path, 'xt') as message:
+                                                message.write(data_message)
+                                        
+                                    connection.send(OK250.encode())
                                     break
                                 else:
                                     index = 0
                                     value = string[index]
                                     error = ''
-
-                                    if at_least_one and data_cmd():
-                                        connection.send(DATA354.encode())
-
-                                        data_message: str = connection.recv(1024).decode()
-                                        print(data_message)
-                                        
-                                        forward_domain: str = []
-                                        for f_path in forward:
-                                            at_index: int = 0
-                                            char_index: int = 0
-                                            for char in f_path:
-                                                if char == '@':
-                                                    at_index = char_index
-                                                char_index += 1
-                                            if f_path[(at_index + 1):] not in forward_domain:
-                                                forward_domain.append(f_path[(at_index + 1):])
-
-                                        for path in forward_domain:
-                                            full_path: str = "./forward/" + path
-                                            if os.path.exists(full_path):
-                                                with open(full_path, 'at') as message:
-                                                    message.write(data_message)
-                                            else:
-                                                with open(full_path, 'xt') as message:
-                                                    message.write(data_message)
-                                        
-                                        connection.send(OK250.encode())
+                                    if ((not at_least_one) and data_cmd()) or error == ERROR501:
+                                        error = ERROR503
                                         break
                                     else:
                                         index = 0
                                         value = string[index]
                                         error = ''
-                                        if ((not at_least_one) and data_cmd()) or error == ERROR501:
-                                            error = ERROR503
-                                            break
-                                        else:
-                                            index = 0
-                                            value = string[index]
-                                            error = ''
-                                            rcpt_to_cmd()
-                                            break
+                                        rcpt_to_cmd()
+                                        break
 
-                        if error != '':
-                            connection.send(error.encode())
+                    if error != '':
+                        connection.send(error.encode())
+                        if connection:
                             connection.close()
-                            smtp_cont = False
-                            break
+                else:
+                    index = 0
+                    value = string[index]
+                    error = ''
+                    if rcpt_to_cmd() or error == ERROR501:
+                        error = ERROR503
                     else:
                         index = 0
                         value = string[index]
                         error = ''
-                        if rcpt_to_cmd() or error == ERROR501:
+                        if data_cmd() or error == ERROR501:
                             error = ERROR503
                         else:
                             index = 0
                             value = string[index]
                             error = ''
-                            if data_cmd() or error == ERROR501:
-                                error = ERROR503
-                            else:
-                                index = 0
-                                value = string[index]
-                                error = ''
-                                mail_from_cmd()
+                            mail_from_cmd()
 
-                        connection.send(error.encode())
+                    connection.send(error.encode())
+                    if connection:
                         connection.close()
-                        smtp_cont = False
-                        break
                     
-                    # QUIT Recieve/Answer
-                    quit_message: str = connection.recv(1024).decode()
-                    if quit_message != "QUIT":
-                        print("QUIT Error")
-                    else:
-                        connection.send(("221 " + socket.gethostname().replace('\n', '') + " closing connection").encode())
-                    break
-            except (EOFError, IndexError):
-                if data_fail:
-                    connection.send(ERROR501.encode())
+            # QUIT Recieve/Answer
+            quit_message: str = ''
+            if connection:
+                quit_message = connection.recv(2048).decode()
+            if quit_message != "QUIT":
+                print("QUIT Error")
+            else:
+                connection.send(("221 " + socket.gethostname().replace('\n', '') + " closing connection").encode())
+                if connection:
+                    connection.close()
+        except (EOFError, IndexError):
+            if data_fail:
+                connection.send(ERROR501.encode())
+            if connection:
                 connection.close()
-                smtp_cont = False
-                break
             
 
 """
@@ -226,18 +226,6 @@ def check_hello_from_client(message: str):
         value = string[index]
 
     if not whitespace():
-        error = ERROR501
-        return False
-
-    if not domain():
-        error = ERROR501
-        return False
-
-    if not nullspace():
-        error = ERROR501
-        return False
-
-    if not CRLF():
         error = ERROR501
         return False
 
