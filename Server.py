@@ -139,7 +139,8 @@ def main():
                                             forward_domain.append(f_path[(at_index + 1):])
 
                                     for path in forward_domain:
-                                        full_path: str = "./forward/" + path
+                                        file_path: str = os.path.dirname(os.path.abspath(__file__))
+                                        full_path: str = file_path + "/forward/" + path
                                         if os.path.exists(full_path):
                                             with open(full_path, 'at') as message:
                                                 message.write(data_message)
