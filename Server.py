@@ -40,6 +40,7 @@ def main():
         # Create socket from argv
         port_num = sys.argv[1]
         server = socket.socket(AF_INET, SOCK_STREAM)
+        server.setsockopt(socket.SO_REUSEADDR)
         server.bind(('', int(port_num)))
         server.listen(1)
     except socket.error:
@@ -66,6 +67,7 @@ def main():
                 print("220 Send Error")
                 connection.close()
 
+        hello_success: bool = False
         if send_220_success:
             # Recieve HELO message from client and respond with 250
             hello_from_client: str = connection.recv(1024).decode()
@@ -73,15 +75,14 @@ def main():
             if not check_hello_from_client(hello_from_client):
                 connection.send(error.encode())
                 connection.close()
-                break
             else:
                 client_name = hello_from_client[4:].replace(' ', '').replace('\n', '')
                 Helo_250: str = "250 Hello " + client_name + " pleased to meet you"
                 connection.send(Helo_250.encode())
+                hello_success = True
 
         # SMTP Message Loop
-        smtp_cont: bool = True
-        while smtp_cont:
+        while hello_success:
             data_fail: bool = False
             try:
                 while True:
@@ -123,28 +124,6 @@ def main():
                                     if at_least_one and data_cmd():
                                         connection.send(DATA354.encode())
 
-                                        """
-                                        data.append("From: <" + reverse + ">\n")
-
-                                        data.append("To: ")
-                                        for path in forward:
-                                            data.append("<" + path + ">, ")
-                                        data.append("\n")
-                                        """
-                                        """
-                                        while True:
-                                            message: str = connection.recv(2048).decode()
-                                            sys.stdout.write(message)
-                                            if message == '':
-                                                data_fail = True
-                                                raise EOFError
-                                            elif message != '.\n':
-                                                data.append(message)
-                                                print(data)
-                                            else:
-                                                connection.send(OK250.encode())
-                                                break
-                                        """
                                         data_message: str = connection.recv(1024).decode()
                                         print(data_message)
                                         
