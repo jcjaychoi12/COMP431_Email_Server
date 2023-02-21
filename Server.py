@@ -39,7 +39,7 @@ def main():
     try:
         # Create socket from argv
         port_num = sys.argv[1]
-        server = socket(AF_INET, SOCK_STREAM)
+        server = socket.socket(AF_INET, SOCK_STREAM)
         server.bind(('', int(port_num)))
         server.listen(1)
     except socket.error:
@@ -119,6 +119,7 @@ def main():
                                     index = 0
                                     value = string[index]
                                     error = ''
+
                                     if at_least_one and data_cmd():
                                         connection.send(DATA354.encode())
 
@@ -130,17 +131,23 @@ def main():
                                             data.append("<" + path + ">, ")
                                         data.append("\n")
                                         """
-
+                                        """
                                         while True:
-                                            message: str = connection.recv(1024).decode()
+                                            message: str = connection.recv(2048).decode()
+                                            sys.stdout.write(message)
                                             if message == '':
                                                 data_fail = True
                                                 raise EOFError
-                                            if message != '.\n':
+                                            elif message != '.\n':
                                                 data.append(message)
+                                                print(data)
                                             else:
+                                                connection.send(OK250.encode())
                                                 break
-
+                                        """
+                                        data_message: str = connection.recv(1024).decode()
+                                        print(data_message)
+                                        
                                         forward_domain: str = []
                                         for f_path in forward:
                                             at_index: int = 0
@@ -156,11 +163,11 @@ def main():
                                             full_path: str = "./forward/" + path
                                             if os.path.exists(full_path):
                                                 with open(full_path, 'at') as message:
-                                                    message.writelines(data)
+                                                    message.write(data_message)
                                             else:
                                                 with open(full_path, 'xt') as message:
-                                                    message.writelines(data)
-
+                                                    message.write(data_message)
+                                        
                                         connection.send(OK250.encode())
                                         break
                                     else:
@@ -210,7 +217,7 @@ def main():
                     if quit_message != "QUIT":
                         print("QUIT Error")
                     else:
-                        connection.send(("221 " + socket.gethostname().remove('\n') + " closing connection").encode())
+                        connection.send(("221 " + socket.gethostname().replace('\n', '') + " closing connection").encode())
                     break
             except (EOFError, IndexError):
                 if data_fail:
