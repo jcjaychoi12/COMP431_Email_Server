@@ -120,6 +120,12 @@ def main():
     mail_from_answer: str = connection.recv(2048).decode()
     if mail_from_answer != OK250:
         print("MAIL FROM Error - " + mail_from_answer)
+        # QUIT Send
+        connection.send("QUIT".encode())
+        # QUIT Recieve
+        quit_answer: str = connection.recv(2048).decode()
+        if quit_answer != ("221 " + server_name + " closing connection"):
+            print("QUIT Error")
         return
 
     # RCPT TO Send/Recieve/Error Check
@@ -128,6 +134,12 @@ def main():
         rcpt_to_answer: str = connection.recv(2048).decode()
         if rcpt_to_answer != OK250:
             print("RCPT TO Error - " + rcpt_to_answer)
+            # QUIT Send
+            connection.send("QUIT".encode())
+            # QUIT Recieve
+            quit_answer: str = connection.recv(2048).decode()
+            if quit_answer != ("221 " + server_name + " closing connection"):
+                print("QUIT Error")
             return
 
     # Send DATA
@@ -136,6 +148,12 @@ def main():
     data_answer: str = connection.recv(2048).decode()
     if data_answer != DATA354:
         print("DATA Error - " + data_answer)
+        # QUIT Send
+        connection.send("QUIT".encode())
+        # QUIT Recieve
+        quit_answer: str = connection.recv(2048).decode()
+        if quit_answer != ("221 " + server_name + " closing connection"):
+            print("QUIT Error")
         return
     
     from_line_portion: str = "From: <" + from_line + ">\n"
@@ -161,6 +179,12 @@ def main():
     data_success: str = connection.recv(2048).decode()
     if data_success != OK250:
         print("DATA Message Error - " + data_success)
+        # QUIT Send
+        connection.send("QUIT".encode())
+        # QUIT Recieve
+        quit_answer: str = connection.recv(2048).decode()
+        if quit_answer != ("221 " + server_name + " closing connection"):
+            print("QUIT Error")
         return
 
     # QUIT Send

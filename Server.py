@@ -66,8 +66,6 @@ def main():
                     send_220_success = True
                 except socket.error:
                     print("220 Send Error")
-                    if connection:
-                        connection.close()
 
             hello_success: bool = False
             if send_220_success:
@@ -76,8 +74,6 @@ def main():
                 client_name: str = ''
                 if not check_hello_from_client(hello_from_client):
                     connection.send(error.encode())
-                    if connection:
-                        connection.close()
                 else:
                     client_name = hello_from_client[4:].replace(' ', '').replace('\n', '')
                     Helo_250: str = "250 Hello " + client_name + " pleased to meet you"
@@ -166,8 +162,6 @@ def main():
 
                     if error != '':
                         connection.send(error.encode())
-                        if connection:
-                            connection.close()
                 else:
                     index = 0
                     value = string[index]
@@ -187,14 +181,14 @@ def main():
                             mail_from_cmd()
 
                     connection.send(error.encode())
-                    if connection:
-                        connection.close()
                     
             # QUIT Recieve/Answer
             quit_message: str = ''
+            proper_quit: bool = False
             if connection:
                 quit_message = connection.recv(2048).decode()
-            if quit_message != "QUIT":
+                proper_quit = True
+            if not proper_quit or quit_message != "QUIT":
                 print("QUIT Error")
             else:
                 connection.send(("221 " + socket.gethostname().replace('\n', '') + " closing connection").encode())
