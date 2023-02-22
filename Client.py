@@ -76,8 +76,6 @@ def main():
         if to_line_index == to_line_max:
             break
 
-
-
     # Ask for Subject: & Message:
     sys.stdout.write("Subject:\n")
     subject_line: str = sys.stdin.readline()
@@ -103,6 +101,13 @@ def main():
     # Recieve 220 Message
     recv_220_message: str = connection.recv(2048).decode()
     if recv_220_message != ("220 " + server_name):
+        print("220 Error")
+        # QUIT Send
+        connection.send("QUIT".encode())
+        # QUIT Recieve
+        quit_answer: str = connection.recv(2048).decode()
+        if quit_answer != ("221 " + server_name + " closing connection"):
+            print("QUIT Error")
         return
 
     # Send HELO Message
@@ -111,6 +116,15 @@ def main():
 
     # Recieve 250 Response
     recv_250_message: str = connection.recv(2048).decode()
+    if recv_250_message != "250 Hello " + CLIENTNAME + " pleased to meet you":
+        print("250 Error")
+        # QUIT Send
+        connection.send("QUIT".encode())
+        # QUIT Recieve
+        quit_answer: str = connection.recv(2048).decode()
+        if quit_answer != ("221 " + server_name + " closing connection"):
+            print("QUIT Error")
+        return
 
     # MAIL FROM Send
     mail_from: str = "MAIL FROM: <" + from_line + ">\n"

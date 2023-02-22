@@ -190,6 +190,8 @@ def main():
                 proper_quit = True
             if not proper_quit or quit_message != "QUIT":
                 print("QUIT Error")
+                if connection:
+                    connection.close()
             else:
                 connection.send(("221 " + socket.gethostname().replace('\n', '') + " closing connection").encode())
                 if connection:
