@@ -48,6 +48,7 @@ def main():
         return
 
     while True:
+        proper_quit: bool = False
         try:
             # Accept connection from client
             success_connect: bool = False
@@ -145,6 +146,7 @@ def main():
                                                 message.write(data_message)
                                         
                                     connection.send(OK250.encode())
+                                    proper_quit = True
                                     break
                                 else:
                                     index = 0
@@ -183,23 +185,16 @@ def main():
                     connection.send(error.encode())
                     
             # QUIT Recieve/Answer
-            quit_message: str = ''
-            proper_quit: bool = False
             if connection:
-                quit_message = connection.recv(2048).decode()
-                proper_quit = True
-            if not proper_quit or quit_message != "QUIT":
-                print("QUIT Error")
-                if connection:
-                    connection.close()
-            else:
+                quit_message: str = connection.recv(2048).decode()
                 connection.send(("221 " + socket.gethostname().replace('\n', '') + " closing connection").encode())
-                if connection:
-                    connection.close()
+                connection.close()
         except (EOFError, IndexError):
             if data_fail:
                 connection.send(ERROR501.encode())
             if connection:
+                connection.recv(2048).decode()
+                connection.send(("221 " + socket.gethostname().replace('\n', '') + " closing connection").encode())
                 connection.close()
             
 
