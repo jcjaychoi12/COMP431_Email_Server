@@ -6,6 +6,7 @@ from socket import *
 import socket
 import sys
 import os
+from time import sleep
 
 
 # Globals
@@ -46,7 +47,7 @@ def main():
     except socket.error:
         print("Socket Creation Error")
         return
-
+    
     while True:
         proper_quit: bool = False
         try:
@@ -81,15 +82,22 @@ def main():
                     connection.send(Helo_250.encode())
                     hello_success = True
 
-            # SMTP Message Loop
             if hello_success:
                 data_fail: bool = False
-                error = ''
-                index = 0
-                string = connection.recv(2048).decode()
-                value = string[index]
 
-                data_fail = False
+                # Get Full Message
+                full_message: str = connection.recv(2048).decode()
+                full_message_split: str = full_message.split('\n')
+                for line in full_message_split:
+                    new_line: str = line + '\n'
+                    full_message_split[full_message_split.index(line)] = new_line
+                full_message_split.pop()
+
+                # Derive MAIL FROM
+                string = full_message_split[0]
+                index = 0
+                error = ''
+                value = string[index]
 
                 reverse = ''
                 forward.clear()
@@ -99,14 +107,16 @@ def main():
                     connection.send(OK250.encode())
 
                     at_least_one: bool = False
+                    message_index: int = 1
                     while True:
                         index = 0
-                        string = connection.recv(2048).decode()
+                        string = full_message_split[message_index]
                         value = string[index]
 
                         if rcpt_to_cmd():
                             at_least_one = True
                             connection.send(OK250.encode())
+                            sleep(0.5)
                         else:
                             index = 0
                             value = string[index]
@@ -122,7 +132,18 @@ def main():
                                 if at_least_one and data_cmd():
                                     connection.send(DATA354.encode())
 
-                                    data_message: str = connection.recv(2048).decode()
+                                    message_index += 1
+                                    data_message: str = ''
+                                    dot_finish: bool = False
+                                    for i in range(message_index, len(full_message_split)):
+                                        if full_message_split[i] != '.\n':
+                                            data_message += full_message_split[i]
+                                        else:
+                                            dot_finish = True
+                                            break
+
+                                    if not dot_finish:
+                                        raise EOFError
                                         
                                     forward_domain: str = []
                                     for f_path in forward:
@@ -161,7 +182,8 @@ def main():
                                         error = ''
                                         rcpt_to_cmd()
                                         break
-
+                        
+                        message_index += 1
                     if error != '':
                         connection.send(error.encode())
                 else:
@@ -183,20 +205,20 @@ def main():
                             mail_from_cmd()
 
                     connection.send(error.encode())
-                    
-            # QUIT Recieve/Answer
+
+            # QUIT Recieve
             if connection:
-                quit_message: str = connection.recv(2048).decode()
+                quit_message: str = connection.recv(2048).decode
                 connection.send(("221 " + socket.gethostname().replace('\n', '') + " closing connection").encode())
                 connection.close()
+
         except (EOFError, IndexError):
-            if data_fail:
-                connection.send(ERROR501.encode())
             if connection:
-                connection.recv(2048).decode()
+                quit_message: str = connection.recv(2048).decode
                 connection.send(("221 " + socket.gethostname().replace('\n', '') + " closing connection").encode())
                 connection.close()
-            
+            return
+
 
 """
     Checks the HELO command from the client

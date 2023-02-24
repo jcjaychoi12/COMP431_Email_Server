@@ -86,90 +86,19 @@ def main():
         if message != ".\n":
             message_lines.append(message)
         else:
+            message_lines.append(message)
             break
 
-    try:
-        # Create socket from argv
-        server_name = sys.argv[1]
-        port_num = sys.argv[2]
-        connection = socket.socket(AF_INET, SOCK_STREAM)
-        connection.connect((server_name, int(port_num)))
-    except socket.error:
-        print("Socket Creation/Connection Error")
-        return
-
-    # Recieve 220 Message
-    recv_220_message: str = connection.recv(2048).decode()
-    if recv_220_message != ("220 " + server_name):
-        print("220 Error")
-        # QUIT Send
-        connection.send("QUIT".encode())
-        # QUIT Recieve
-        quit_answer: str = connection.recv(2048).decode()
-        if quit_answer != ("221 " + server_name + " closing connection"):
-            print("QUIT Error")
-        return
-
-    # Send HELO Message
-    helo_message: str = "HELO " + CLIENTNAME + '\n'
-    connection.send(helo_message.encode())
-
-    # Recieve 250 Response
-    recv_250_message: str = connection.recv(2048).decode()
-    if recv_250_message != "250 Hello " + CLIENTNAME + " pleased to meet you":
-        print("250 Error")
-        # QUIT Send
-        connection.send("QUIT".encode())
-        # QUIT Recieve
-        quit_answer: str = connection.recv(2048).decode()
-        if quit_answer != ("221 " + server_name + " closing connection"):
-            print("QUIT Error")
-        return
-
-    # MAIL FROM Send
+    # Collect SMTP Messages
     mail_from: str = "MAIL FROM: <" + from_line + ">\n"
-    connection.send(mail_from.encode())
-
-    # MAIL FROM Recieve/Error Check
-    mail_from_answer: str = connection.recv(2048).decode()
-    if mail_from_answer != OK250:
-        print("MAIL FROM Error - " + mail_from_answer)
-        # QUIT Send
-        connection.send("QUIT".encode())
-        # QUIT Recieve
-        quit_answer: str = connection.recv(2048).decode()
-        if quit_answer != ("221 " + server_name + " closing connection"):
-            print("QUIT Error")
-        return
-
-    # RCPT TO Send/Recieve/Error Check
+    rcpt_to: str = ''
     for line in to_line_split:
-        connection.send(("RCPT TO: <" + line + ">\n").encode())
-        rcpt_to_answer: str = connection.recv(2048).decode()
-        if rcpt_to_answer != OK250:
-            print("RCPT TO Error - " + rcpt_to_answer)
-            # QUIT Send
-            connection.send("QUIT".encode())
-            # QUIT Recieve
-            quit_answer: str = connection.recv(2048).decode()
-            if quit_answer != ("221 " + server_name + " closing connection"):
-                print("QUIT Error")
-            return
+        rcpt_to = rcpt_to + "RCPT TO: <" + line + ">\n"
+    data_command: str = "DATA\n"
 
-    # Send DATA
-    data_send: str = "DATA\n"
-    connection.send(data_send.encode())
-    data_answer: str = connection.recv(2048).decode()
-    if data_answer != DATA354:
-        print("DATA Error - " + data_answer)
-        # QUIT Send
-        connection.send("QUIT".encode())
-        # QUIT Recieve
-        quit_answer: str = connection.recv(2048).decode()
-        if quit_answer != ("221 " + server_name + " closing connection"):
-            print("QUIT Error")
-        return
-    
+    smtp_message: str = mail_from + rcpt_to + data_command
+
+    # Collect DATA Message
     from_line_portion: str = "From: <" + from_line + ">\n"
     line_index: int = 0
     max_line_index: int = len(to_line_split) - 1
@@ -187,24 +116,100 @@ def main():
 
     data_line: str = from_line_portion + to_line_portion + subject_line_portion + message_line_portion
 
-    connection.send(data_line.encode())
+    full_message: str = smtp_message + data_line
 
-    # DATA Recieve/Error Checking
-    data_success: str = connection.recv(2048).decode()
-    if data_success != OK250:
-        print("DATA Message Error - " + data_success)
+    try:
+        # Create socket from argv
+        server_name = sys.argv[1]
+        port_num = sys.argv[2]
+        connection = socket.socket(AF_INET, SOCK_STREAM)
+        connection.connect((server_name, int(port_num)))
+    except socket.error:
+        print("Socket Creation/Connection Error")
+        return
+
+    # Recieve 220 Message
+    recv_220_message: str = connection.recv(2048).decode()
+    if recv_220_message != ("220 " + server_name):
+        print("220 Error")
         # QUIT Send
-        connection.send("QUIT".encode())
+        connection.send("QUIT\n".encode())
         # QUIT Recieve
         quit_answer: str = connection.recv(2048).decode()
         if quit_answer != ("221 " + server_name + " closing connection"):
             print("QUIT Error")
         return
 
-    # QUIT Send
-    connection.send("QUIT".encode())
+    # Send HELO Message
+    helo_message: str = "HELO " + CLIENTNAME + '\n'
+    connection.send(helo_message.encode())
 
-    # QUIT Recieve
+    # Recieve 250 Response
+    recv_250_message: str = connection.recv(2048).decode()
+    if recv_250_message != "250 Hello " + CLIENTNAME + " pleased to meet you":
+        print("250 Error")
+        # QUIT Send
+        connection.send("QUIT\n".encode())
+        # QUIT Recieve
+        quit_answer: str = connection.recv(2048).decode()
+        if quit_answer != ("221 " + server_name + " closing connection"):
+            print("QUIT Error")
+        return
+    
+    # Send Full Message
+    connection.send(full_message.encode())
+
+    # Check MAIL FROM Response
+    mail_from_answer: str = connection.recv(2048).decode()
+    if mail_from_answer != OK250:
+        print("MAIL FROM Error - " + mail_from_answer)
+        # QUIT Send
+        connection.send("QUIT\n".encode())
+        # QUIT Recieve
+        quit_answer: str = connection.recv(2048).decode()
+        if quit_answer != ("221 " + server_name + " closing connection"):
+            print("QUIT Error")
+        return
+
+    # Check RCPT TO Responses
+    for i in range(len(to_line_split)):
+        rcpt_to_answer: str = connection.recv(2048).decode()
+        if rcpt_to_answer != OK250:
+            print("RCPT TO Error - " + rcpt_to_answer)
+            # QUIT Send
+            connection.send("QUIT\n".encode())
+            # QUIT Recieve
+            quit_answer: str = connection.recv(2048).decode()
+            if quit_answer != ("221 " + server_name + " closing connection"):
+                print("QUIT Error")
+            return
+
+    # Check DATA 354 Response
+    data_answer: str = connection.recv(2048).decode()
+    if data_answer != DATA354:
+        print("DATA Error - " + data_answer)
+        # QUIT Send
+        connection.send("QUIT\n".encode())
+        # QUIT Recieve
+        quit_answer: str = connection.recv(2048).decode()
+        if quit_answer != ("221 " + server_name + " closing connection"):
+            print("QUIT Error")
+        return
+
+    # Check DATA 250 Response
+    data_success: str = connection.recv(2048).decode()
+    if data_success != OK250:
+        print("DATA Message Error - " + data_success)
+        # QUIT Send
+        connection.send("QUIT\n".encode())
+        # QUIT Recieve
+        quit_answer: str = connection.recv(2048).decode()
+        if quit_answer != ("221 " + server_name + " closing connection"):
+            print("QUIT Error")
+        return
+    
+    # Proper QUIT
+    connection.send("QUIT\n".encode())
     quit_answer: str = connection.recv(2048).decode()
     if quit_answer != ("221 " + server_name + " closing connection"):
         print("QUIT Error")
