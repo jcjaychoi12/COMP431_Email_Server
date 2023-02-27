@@ -18,11 +18,11 @@ error: str = ''
 
 # Constants
 CLIENTNAME = socket.gethostname()
-ERROR500 = "500"
-ERROR501 = "501"
-ERROR503 = "503"
-DATA354 = "354"
-OK250 = "250"
+ERROR500 = "500 Syntax error: command unrecognized"
+ERROR501 = "501 Syntax error in parameters or arguments"
+ERROR503 = "503 Bad sequence of commands"
+DATA354 = "354 Start mail input; end with <CRLF>.<CRLF>"
+OK250 = "250 OK"
 ZERO_ASCII = 48
 NINE_ASCII = 57
 UPPER_A_ASCII = 65
